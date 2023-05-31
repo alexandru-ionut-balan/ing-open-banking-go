@@ -2,6 +2,10 @@ package fs
 
 import (
 	"bufio"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"os"
 	"strings"
 
@@ -51,6 +55,62 @@ func ReadFileBytes(filePath string) []byte {
 	}
 
 	return bytes
+}
+
+func ReadCertificate(filePath string) *x509.Certificate {
+	bytes := ReadFileBytes(filePath)
+
+	derBytes, rest := pem.Decode(bytes)
+	if len(rest) > 0 {
+		log.Error.Fatalln("Cannot read certificate at " + filePath)
+	}
+
+	certificate, err := x509.ParseCertificate(derBytes.Bytes)
+	if err != nil {
+		log.Error.Fatalln("Cannot parse certificate from file at "+filePath, err)
+	}
+
+	return certificate
+}
+
+func ReadPrivateKey(filePath string) *rsa.PrivateKey {
+	bytes := ReadFileBytes(filePath)
+
+	derBytes, rest := pem.Decode(bytes)
+	if len(rest) > 0 {
+		log.Error.Fatalln("Cannot read certificate at " + filePath)
+	}
+
+	privateKey, err := readPkcs1(derBytes.Bytes)
+	if err != nil {
+		log.Error.Println(err)
+		privateKey, err = readPkcs8(derBytes.Bytes)
+		if err != nil {
+			log.Error.Fatalln(err)
+		}
+
+		return privateKey
+	}
+
+	return privateKey
+}
+
+func readPkcs1(derBytes []byte) (*rsa.PrivateKey, error) {
+	return x509.ParsePKCS1PrivateKey(derBytes)
+}
+
+func readPkcs8(derBytes []byte) (*rsa.PrivateKey, error) {
+	privateKey, err := x509.ParsePKCS8PrivateKey(derBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	rsaKey, ok := privateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("cannot convert the read private key to the RSA format")
+	}
+
+	return rsaKey, nil
 }
 
 func closeFile(file *os.File) {
