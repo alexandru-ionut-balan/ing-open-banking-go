@@ -57,6 +57,10 @@ func ReadFileBytes(filePath string) []byte {
 	return bytes
 }
 
+func GetSerialNumber(certificte *x509.Certificate) string {
+	return certificte.SerialNumber.Text(16)
+}
+
 func ReadCertificate(filePath string) *x509.Certificate {
 	bytes := ReadFileBytes(filePath)
 
